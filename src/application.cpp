@@ -1,174 +1,65 @@
-/**
- ******************************************************************************
- * @file    application.cpp
- * @authors  Satish Nair, Zachary Crockett and Mohit Bhoite
- * @version V1.0.0
- * @date    05-November-2013
- * @brief   Tinker application
- ******************************************************************************
-  Copyright (c) 2013 Spark Labs, Inc.  All rights reserved.
+#include <application.h>
 
-  This program is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation, either
-  version 3 of the License, or (at your option) any later version.
+uint32_t lastReset = 0; // last known reset time
+bool s = true;
 
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this program; if not, see <http://www.gnu.org/licenses/>.
- ******************************************************************************
- */
-
-/* Includes ------------------------------------------------------------------*/  
-#include "application.h"
-
-/* Function prototypes -------------------------------------------------------*/
-int tinkerDigitalRead(String pin);
-int tinkerDigitalWrite(String command);
-int tinkerAnalogRead(String pin);
-int tinkerAnalogWrite(String command);
-
-/* This function is called once at start up ----------------------------------*/
 void setup()
 {
-	//Setup the Tinker application here
+/*
+  // Watchdog setup in case you want to override 
+  // the system configuration
+  //--------------------------------------------
+  IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+  // check that we flag reset before writing Prescaler
+  while (IWDG_GetFlagStatus(IWDG_FLAG_PVU) == SET) {
+    // Wait until hardware is ready 
+  }
+  
+  //IWDG_SetPrescaler(IWDG_Prescaler_64);
+  IWDG_SetPrescaler(IWDG_Prescaler_256);
+  
+  // check that we flag reset before writing Reload value
+  while (IWDG_GetFlagStatus(IWDG_FLAG_RVU) == SET) {
+    // Wait until hardware is ready 
+  }
+  
+  //IWDG_SetReload(0x0FFF); // 0x0FFF = 6.55 seconds (prescaler of 64)
+  IWDG_SetReload(0x0FFF); // 0x0FFF = 26.2 seconds (prescaler of 256)
 
-	//Register all the Tinker functions
-	Spark.function("digitalread", tinkerDigitalRead);
-	Spark.function("digitalwrite", tinkerDigitalWrite);
-
-	Spark.function("analogread", tinkerAnalogRead);
-	Spark.function("analogwrite", tinkerAnalogWrite);
-
+  IWDG_WriteAccessCmd(IWDG_WriteAccess_Disable); // block lockdown
+  IWDG_ReloadCounter(); // kick the dog for the first time
+  IWDG_Enable(); // should probably not be needed since we are setting the flags above and then disabling the write access but it doesnt hurt...   
+*/
+  pinMode(D7, OUTPUT);
+  lastReset = millis(); // We just powered up 
 }
 
-/* This function loops forever --------------------------------------------*/
-void loop()
-{
-	//This will run in a loop
-}
+void loop() {
+  // Wait 5 seconds before running our code, this demonstrates that the RGB
+  // is breathing RED to indicate IWDG reset occurred.
+  if( (millis()-lastReset) > (5*1000) ) {
+    // After 5 seconds...
 
-/*******************************************************************************
- * Function Name  : tinkerDigitalRead
- * Description    : Reads the digital value of a given pin
- * Input          : Pin 
- * Output         : None.
- * Return         : Value of the pin (0 or 1) in INT type
-                    Returns a negative number on failure
- *******************************************************************************/
-int tinkerDigitalRead(String pin)
-{
-	//convert ascii to integer
-	int pinNumber = pin.charAt(1) - '0';
-	//Sanity check to see if the pin numbers are within limits
-	if (pinNumber< 0 || pinNumber >7) return -1;
+    // This is how we can detect we are running from a IWDG (Independent Watchdog) reset
+    if(IWDG_SYSTEM_RESET == 1) {
+      // This is how we switch breathing RED back to CYAN
+      LED_SetRGBColor(RGB_COLOR_CYAN);
+      IWDG_SYSTEM_RESET = 0; // reset IWDG flag for good measure
+      
+      // Optionally, we can log that 
+      //a watchdog timeout occurred.
+    }
 
-	if(pin.startsWith("D"))
-	{
-		pinMode(pinNumber, INPUT_PULLDOWN);
-		return digitalRead(pinNumber);
-	}
-	else if (pin.startsWith("A"))
-	{
-		pinMode(pinNumber+10, INPUT_PULLDOWN);
-		return digitalRead(pinNumber+10);
-	}
-	return -2;
-}
-
-/*******************************************************************************
- * Function Name  : tinkerDigitalWrite
- * Description    : Sets the specified pin HIGH or LOW
- * Input          : Pin and value
- * Output         : None.
- * Return         : 1 on success and a negative number on failure
- *******************************************************************************/
-int tinkerDigitalWrite(String command)
-{
-	bool value = 0;
-	//convert ascii to integer
-	int pinNumber = command.charAt(1) - '0';
-	//Sanity check to see if the pin numbers are within limits
-	if (pinNumber< 0 || pinNumber >7) return -1;
-
-	if(command.substring(3,7) == "HIGH") value = 1;
-	else if(command.substring(3,6) == "LOW") value = 0;
-	else return -2;
-
-	if(command.startsWith("D"))
-	{
-		pinMode(pinNumber, OUTPUT);
-		digitalWrite(pinNumber, value);
-		return 1;
-	}
-	else if(command.startsWith("A"))
-	{
-		pinMode(pinNumber+10, OUTPUT);
-		digitalWrite(pinNumber+10, value);
-		return 1;
-	}
-	else return -3;
-}
-
-/*******************************************************************************
- * Function Name  : tinkerAnalogRead
- * Description    : Reads the analog value of a pin
- * Input          : Pin 
- * Output         : None.
- * Return         : Returns the analog value in INT type (0 to 4095)
-                    Returns a negative number on failure
- *******************************************************************************/
-int tinkerAnalogRead(String pin)
-{
-	//convert ascii to integer
-	int pinNumber = pin.charAt(1) - '0';
-	//Sanity check to see if the pin numbers are within limits
-	if (pinNumber< 0 || pinNumber >7) return -1;
-
-	if(pin.startsWith("D"))
-	{
-		pinMode(pinNumber, INPUT);
-		return analogRead(pinNumber);
-	}
-	else if (pin.startsWith("A"))
-	{
-		pinMode(pinNumber+10, INPUT);
-		return analogRead(pinNumber+10);
-	}
-	return -2;
-}
-
-/*******************************************************************************
- * Function Name  : tinkerAnalogWrite
- * Description    : Writes an analog value (PWM) to the specified pin
- * Input          : Pin and Value (0 to 255)
- * Output         : None.
- * Return         : 1 on success and a negative number on failure
- *******************************************************************************/
-int tinkerAnalogWrite(String command)
-{
-	//convert ascii to integer
-	int pinNumber = command.charAt(1) - '0';
-	//Sanity check to see if the pin numbers are within limits
-	if (pinNumber< 0 || pinNumber >7) return -1;
-
-	String value = command.substring(3);
-
-	if(command.startsWith("D"))
-	{
-		pinMode(pinNumber, OUTPUT);
-		analogWrite(pinNumber, value.toInt());
-		return 1;
-	}
-	else if(command.startsWith("A"))
-	{
-		pinMode(pinNumber+10, OUTPUT);
-		analogWrite(pinNumber+10, value.toInt());
-		return 1;
-	}
-	else return -2;
+    // This hard loop will force the IWDG to occur after 26.208 seconds
+    while(true) {
+      digitalWrite(D7,s);
+      s = !s; // toggle the state
+      delay(30); // makes it blink faster!!! 
+    }
+  }
+  
+  // Blink the LED so know the code is running...
+  digitalWrite(D7,s);
+  s = !s; // toggle the state
+  delay(100); // makes it blinky
 }

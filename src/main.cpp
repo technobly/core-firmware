@@ -127,8 +127,8 @@ int main(void)
 		RCC_ClearFlag();
 	}
 
-	/* Set IWDG Timeout to 3 secs */
-	IWDG_Reset_Enable(3 * TIMING_IWDG_RELOAD);
+	/* Set IWDG Timeout to 26.208 secs */
+	IWDG_Reset_Enable(IWDG_RELOAD_MAX);
 #endif
 
 #ifdef DFU_BUILD_ENABLE
@@ -157,7 +157,7 @@ int main(void)
 #ifdef SPARK_WLAN_ENABLE
 		if(SPARK_HANDSHAKE_COMPLETED || SPARK_WIRING_APPLICATION)
 		{
-			if(!SPARK_FLASH_UPDATE && !IWDG_SYSTEM_RESET)
+			if(!SPARK_FLASH_UPDATE)
 			{
 #endif
 				if((SPARK_WIRING_APPLICATION != 1) && (NULL != setup))
@@ -176,6 +176,11 @@ int main(void)
 #ifdef SPARK_WLAN_ENABLE
 				userEventSend();
 			}
+#ifdef IWDG_RESET_ENABLE
+			/* Reload IWDG counter every time through main loop 
+			   while ONLINE or just running OFFLINE CODE */
+			IWDG_ReloadCounter();
+#endif
 		}
 #endif
 #endif
@@ -240,7 +245,10 @@ void Timing_Decrement(void)
 #if defined (RGB_NOTIFICATIONS_CONNECTING_ONLY)
 		LED_Off(LED_RGB);
 #else
-		LED_SetRGBColor(RGB_COLOR_CYAN);
+		if(IWDG_SYSTEM_RESET)
+			LED_SetRGBColor(RGB_COLOR_RED);  // Reset from Watchdog timeout
+		else
+			LED_SetRGBColor(RGB_COLOR_CYAN); // Reset normally
 		LED_On(LED_RGB);
 		SPARK_LED_FADE = 1;
 #endif
@@ -344,20 +352,6 @@ void Timing_Decrement(void)
 				TimingCloudHandshakeTimeout++;
 			}
 		}
-	}
-#endif
-
-#ifdef IWDG_RESET_ENABLE
-	if (TimingIWDGReload >= TIMING_IWDG_RELOAD)
-	{
-		TimingIWDGReload = 0;
-
-		/* Reload IWDG counter */
-		IWDG_ReloadCounter();
-	}
-	else
-	{
-		TimingIWDGReload++;
 	}
 #endif
 

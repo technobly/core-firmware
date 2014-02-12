@@ -71,7 +71,7 @@ extern "C" {
  * upset the debugger
  */
 #define IWDG_RESET_ENABLE
-#define TIMING_IWDG_RELOAD	1000 //1sec
+#define IWDG_RELOAD_MAX     26208 //26.208 seconds max value for 256 prescaler
 #endif
 
 #endif
